@@ -1,0 +1,173 @@
+#define _USE_MATH_DEFINES 
+
+#include <cmath>
+#include <iostream>
+
+#include <GL/glew.h>
+#include <GL/freeglut.h>
+
+static float z = 0.0;
+static float xx = 0.0;
+
+const int numPoints = 4;
+static GLfloat controlPoints[numPoints][numPoints][3] = {
+    {{-5.0, -5.0, 0.0}, {-1.67, -5.0, 0.0}, {1.67, -5.0, 0.0}, {5.0, -5.0, 0.0}},
+    {{-5.0, -1.67, 0.0}, {-1.67, -1.67, 0.0}, {1.67, -1.67, 0.0}, {5.0, -1.67, 0.0}},
+    {{-5.0, 1.67, 0.0}, {-1.67, 1.67, 0.0}, {1.67, 1.67, 0.0}, {5.0, 1.67, 0.0}},
+    {{-5.0, 5.0, 0.0}, {-1.67, 5.0, 0.0}, {1.67, 5.0, 0.0}, {5.0, 5.0, 0.0}}
+};
+
+// Track the selected control point
+static int rowCount = 0, columnCount = 0;
+
+// Initialization routine.
+void setup(void)
+{
+    glClearColor(1.0, 1.0, 1.0, 0.0);
+}
+
+// Drawing routine.
+void drawScene(void)
+{
+    int i, j;
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    glColor3f(0.0, 0.0, 0.0);
+    glLoadIdentity();
+
+    if (z >= 1.5 * M_PI) z -= 2 * M_PI;
+    if (z <= -1.5 * M_PI) z += 2 * M_PI;
+
+    float upY = (z > M_PI / 2 || z < -M_PI / 2) ? -1.0f : 1.0f;
+    gluLookAt(10.0 * cos(z) * sin(xx), 10.0 * sin(z), 10.0 * cos(z) * cos(xx), 0.0, 0.0, 0.0, 0.0, upY, 0.0);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glBegin(GL_QUADS);
+    float part = 10.0 / 100.0;
+    for (float i = -5.0; i <= 5.0; i += part) {
+        for (float j = -5.0; j <= 5.0; j += part) {
+            glVertex3f(i, i, 0.0);
+            glVertex3f(i, j, 0.0);
+            glVertex3f(j, j, 0.0);
+            glVertex3f(j, i, 0.0);
+        }
+    }
+    glEnd();
+
+    glPointSize(5.0);
+    glBegin(GL_POINTS);
+    for (int i = 0; i < numPoints; i++) {
+        for (int j = 0; j < numPoints; j++) {
+            glVertex3f(controlPoints[i][j][0], controlPoints[i][j][1], controlPoints[i][j][2]);
+        }
+    }
+    glEnd();
+
+    // Draw the selected control point
+    glColor3f(1.0, 0.0, 0.0);
+    glBegin(GL_POINTS);
+    glVertex3f(controlPoints[rowCount][columnCount][0], controlPoints[rowCount][columnCount][1], controlPoints[rowCount][columnCount][2]);
+    glEnd();
+
+    glFlush();
+}
+
+// OpenGL window reshape routine.
+void resize(int w, int h)
+{
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-7.0, 7.0, -7.0, 7.0, 7.0, 100.0);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+// Keyboard input processing routine.
+void keyInput(unsigned char key, int x, int y)
+{
+    switch (key)
+    {
+    case 27:
+        exit(0);
+        break;
+    case 'w':
+        z += 0.1;
+        glutPostRedisplay();
+        break;
+    case 's':
+        z -= 0.1;
+        glutPostRedisplay();
+        break;
+    case 'd':
+        xx -= 0.1;
+        glutPostRedisplay();
+        break;
+    case 'a':
+        xx += 0.1;
+        glutPostRedisplay();
+        break;
+    case 9:
+    {
+        if (rowCount < 5) rowCount++;
+        else rowCount = 0;
+    }
+    glutPostRedisplay();
+    break;
+    case ' ':
+    {
+        if (columnCount < 3) columnCount++;
+        else columnCount = 0;
+    }
+    glutPostRedisplay();
+    break;
+    default:
+        break;
+    }
+}
+
+// Callback routine for non-ASCII key entry.
+void specialKeyInput(int key, int x, int y)
+{
+    if (key == GLUT_KEY_LEFT) controlPoints[rowCount][columnCount][0] -= 0.1;
+    if (key == GLUT_KEY_RIGHT) controlPoints[rowCount][columnCount][0] += 0.1;
+    if (key == GLUT_KEY_DOWN) controlPoints[rowCount][columnCount][1] -= 0.1;
+    if (key == GLUT_KEY_UP) controlPoints[rowCount][columnCount][1] += 0.1;
+    if (key == GLUT_KEY_PAGE_DOWN) controlPoints[rowCount][columnCount][2] -= 0.1;
+    if (key == GLUT_KEY_PAGE_UP) controlPoints[rowCount][columnCount][2] += 0.1;
+
+    glutPostRedisplay();
+}
+
+// Routine to output interaction instructions to the C++ window.
+void printInteraction(void)
+{
+    std::cout << "Interaction:" << std::endl;
+    std::cout << "Press WASD to rotate" << std::endl;
+    std::cout << "Use arrow keys to move the selected control point" << std::endl;
+}
+
+// Main routine.
+int main(int argc, char** argv)
+{
+    printInteraction();
+    glutInit(&argc, argv);
+
+    glutInitContextVersion(4, 3);
+    glutInitContextProfile(GLUT_COMPATIBILITY_PROFILE);
+
+    glutInitDisplayMode(GLUT_SINGLE | GLUT_RGBA);
+    glutInitWindowSize(500, 500);
+    glutInitWindowPosition(100, 100);
+    glutCreateWindow("Control Points Movement");
+    glutDisplayFunc(drawScene);
+    glutReshapeFunc(resize);
+    glutKeyboardFunc(keyInput);
+    glutSpecialFunc(specialKeyInput);
+
+    glewExperimental = GL_TRUE;
+    glewInit();
+
+    setup();
+
+    glutMainLoop();
+}
