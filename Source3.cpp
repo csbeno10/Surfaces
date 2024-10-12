@@ -17,6 +17,61 @@ static GLfloat controlPoints[numPoints][numPoints][3] = {
     {{-5.0, 5.0, 0.0}, {-1.67, 5.0, 0.0}, {1.67, 5.0, 0.0}, {5.0, 5.0, 0.0}}
 };
 
+float Bernstein(int i, int n, float t) {
+    // Binomial coefficient
+    float binomial = 1;
+    for (int k = 0; k < i; ++k)
+        binomial *= (float)(n - k) / (k + 1);
+
+    return binomial * pow(t, i) * pow(1 - t, n - i);
+}
+
+// Function to evaluate the Bézier surface at (u, v)
+void evaluateBezierSurface(float u, float v, float* point) {
+    point[0] = point[1] = point[2] = 0.0f;
+
+    for (int i = 0; i < numPoints; ++i) {
+        for (int j = 0; j < numPoints; ++j) {
+            float bu = Bernstein(i, numPoints - 1, u);
+            float bv = Bernstein(j, numPoints - 1, v);
+
+            point[0] += bu * bv * controlPoints[i][j][0];
+            point[1] += bu * bv * controlPoints[i][j][1];
+            point[2] += bu * bv * controlPoints[i][j][2];
+        }
+    }
+}
+
+// Function to draw the Bézier surface as a mesh of quads
+void drawBezierSurface(int resolution) {
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+    glBegin(GL_QUADS);
+    for (int i = 0; i < resolution-1; ++i) {
+        float u = (float)i / (resolution - 1);
+        float uNext = (float)(i + 1) / (resolution - 1);
+
+        for (int j = 0; j < resolution-1; ++j) {
+            float v = (float)j / (resolution - 1);
+            float vNext = (float)(j + 1) / (resolution - 1);
+
+            // Evaluate 4 corners of the quad
+            float p1[3], p2[3], p3[3], p4[3];
+            evaluateBezierSurface(u, v, p1);
+            evaluateBezierSurface(uNext, v, p2);
+            evaluateBezierSurface(uNext, vNext, p3);
+            evaluateBezierSurface(u, vNext, p4);
+
+            // Draw the quad
+            glVertex3fv(p1);
+            glVertex3fv(p2);
+            glVertex3fv(p3);
+            glVertex3fv(p4);
+        }
+    }
+    glEnd();
+}
+
 // Track the selected control point
 static int rowCount = 0, columnCount = 0;
 
@@ -43,6 +98,7 @@ void drawScene(void)
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     
+    /*
     glBegin(GL_QUADS);
     float part = 10.0 / 30.0;
     for (float i = -5.0; i <= 5.0; i += part) {
@@ -53,10 +109,13 @@ void drawScene(void)
             glVertex3f(j, i, 0.0);
         }
     }
-    glEnd();
+    glEnd();*/
+
+    drawBezierSurface(30);
 
 
     glBegin(GL_QUADS);
+    glColor3f(1.0, 0.0, 0.0);
     for (int i = 0; i < numPoints-1; i += 1) {
         for (int j = 0; j < numPoints-1; j += 1) {
             glVertex3f(controlPoints[i][j][0], controlPoints[i][j][1], controlPoints[i][j][2]);
@@ -164,18 +223,6 @@ void keyInput(unsigned char key, int x, int y)
     }
 }
 
-// Callback routine for non-ASCII key entry.
-void specialKeyInput(int key, int x, int y)
-{
-    if (key == GLUT_KEY_LEFT) controlPoints[rowCount][columnCount][0] -= 0.1;
-    if (key == GLUT_KEY_RIGHT) controlPoints[rowCount][columnCount][0] += 0.1;
-    if (key == GLUT_KEY_DOWN) controlPoints[rowCount][columnCount][1] -= 0.1;
-    if (key == GLUT_KEY_UP) controlPoints[rowCount][columnCount][1] += 0.1;
-    if (key == GLUT_KEY_PAGE_DOWN) controlPoints[rowCount][columnCount][2] -= 0.1;
-    if (key == GLUT_KEY_PAGE_UP) controlPoints[rowCount][columnCount][2] += 0.1;
-
-    glutPostRedisplay();
-}
 
 // Routine to output interaction instructions to the C++ window.
 void printInteraction(void)
@@ -202,7 +249,7 @@ int main(int argc, char** argv)
     glutDisplayFunc(drawScene);
     glutReshapeFunc(resize);
     glutKeyboardFunc(keyInput);
-    glutSpecialFunc(specialKeyInput);
+
 
     glewExperimental = GL_TRUE;
     glewInit();
