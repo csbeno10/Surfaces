@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <vector>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -9,13 +10,14 @@
 static float z = 0.0;
 static float xx = 0.0;
 
-const int numPoints = 4;
-static GLfloat controlPoints[numPoints][numPoints][3] = {
-    {{-5.0, -5.0, 0.0}, {-1.67, -5.0, 0.0}, {1.67, -5.0, 0.0}, {5.0, -5.0, 0.0}},
-    {{-5.0, -1.67, 0.0}, {-1.67, -1.67, 0.0}, {1.67, -1.67, 0.0}, {5.0, -1.67, 0.0}},
-    {{-5.0, 1.67, 0.0}, {-1.67, 1.67, 0.0}, {1.67, 1.67, 0.0}, {5.0, 1.67, 0.0}},
-    {{-5.0, 5.0, 0.0}, {-1.67, 5.0, 0.0}, {1.67, 5.0, 0.0}, {5.0, 5.0, 0.0}}
-};
+static int numPoints = 4;
+
+// Track the selected control point
+static int rowCount = 0, columnCount = 0;
+
+std::vector<std::vector<std::vector<GLfloat>>> controlPoints(numPoints, std::vector<std::vector<GLfloat>>(numPoints, std::vector<GLfloat>(3)));
+
+
 
 float Bernstein(int i, int n, float t) {
     // Binomial coefficient
@@ -72,19 +74,39 @@ void drawBezierSurface(int resolution) {
     glEnd();
 }
 
-// Track the selected control point
-static int rowCount = 0, columnCount = 0;
+void changeControlPoints()
+{
+    controlPoints.resize(numPoints);
+
+    // Resize each row to have 3 columns
+    for (int i = 0; i < numPoints; ++i) {
+        controlPoints[i].resize(numPoints);
+    }
+
+    GLfloat part = 10.0 / (numPoints - 1);
+    for (int i = 0; i < numPoints; ++i) {
+        for (int j = 0; j < numPoints; ++j) {
+            controlPoints[i][j] = { -5 + (i * part), -5 + (j * part) , 0.0 };
+            
+        }
+
+    }
+}
 
 // Initialization routine.
 void setup(void)
 {
     glClearColor(1.0, 1.0, 1.0, 0.0);
+    changeControlPoints();
 }
+
+
 
 // Drawing routine.
 void drawScene(void)
 {
-    int i, j;
+    
+
 
     glClear(GL_COLOR_BUFFER_BIT);
     glColor3f(0.0, 0.0, 0.0);
@@ -115,7 +137,7 @@ void drawScene(void)
 
 
     glBegin(GL_QUADS);
-    glColor3f(1.0, 0.0, 0.0);
+    glColor3f(0.0, 0.0, 1.0);
     for (int i = 0; i < numPoints-1; i += 1) {
         for (int j = 0; j < numPoints-1; j += 1) {
             glVertex3f(controlPoints[i][j][0], controlPoints[i][j][1], controlPoints[i][j][2]);
@@ -180,7 +202,7 @@ void keyInput(unsigned char key, int x, int y)
         break;
     case 9:
     {
-        if (rowCount < 3) rowCount++;
+        if (rowCount < numPoints-1) rowCount++;
         else rowCount = 0;
         glutPostRedisplay();
         break;
@@ -188,7 +210,7 @@ void keyInput(unsigned char key, int x, int y)
     
     case ' ':
     {
-        if (columnCount < 3) columnCount++;
+        if (columnCount < numPoints-1) columnCount++;
         else columnCount = 0;
         glutPostRedisplay();
         break;
@@ -215,6 +237,24 @@ void keyInput(unsigned char key, int x, int y)
         break;
     case 'z':
         controlPoints[rowCount][columnCount][2] += 0.1;
+        glutPostRedisplay();
+        break;
+    case 'j':
+        if (numPoints < 10) {
+            numPoints += 1;
+            columnCount = 0;
+            rowCount = 0;
+            changeControlPoints();
+        }
+        glutPostRedisplay();
+        break;
+    case 'k':
+        if (numPoints > 4) {
+            numPoints -= 1;
+            columnCount = 0;
+            rowCount = 0;
+            changeControlPoints();
+        }
         glutPostRedisplay();
         break;
     
