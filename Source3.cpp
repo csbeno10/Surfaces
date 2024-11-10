@@ -12,10 +12,15 @@ static float xx = 0.0;
 
 static int numPoints = 4;
 
+static int mode = 0;
+
 // Track the selected control point
 static int rowCount = 0, columnCount = 0;
 
 std::vector<std::vector<std::vector<GLfloat>>> controlPoints(numPoints, std::vector<std::vector<GLfloat>>(numPoints, std::vector<GLfloat>(3)));
+
+std::vector<float> knotVectorU;
+std::vector<float> knotVectorV;
 
 
 
@@ -93,6 +98,105 @@ void changeControlPoints()
     }
 }
 
+
+
+std::vector<float> generateKnotVector(int degree) {
+    int numControlPoints = numPoints;
+    int numKnots = numControlPoints + degree + 1;
+    std::vector<float> knotVector(numKnots);
+
+    // First and last knots are clamped
+    for (int i = 0; i <= degree; ++i) {
+        knotVector[i] = 0.0f;  // Clamped at the beginning
+        knotVector[numKnots - 1 - i] = 1.0f;  // Clamped at the end
+    }
+
+    // Interior knots are uniformly spaced
+    float step = 1.0f / (numControlPoints - degree);
+    for (int i = degree + 1; i < numControlPoints; ++i) {
+        knotVector[i] = (i - degree) * step;
+    }
+
+    return knotVector;
+}
+
+
+
+float N(int i, int p, float u, const std::vector<float>& knotVector) {
+    if (p == 0) {
+        return (knotVector[i] <= u && u < knotVector[i + 1]) ? 1.0f : 0.0f;
+    }
+    else {
+        float leftTerm = 0.0f;
+        float rightTerm = 0.0f;
+
+        float denominator1 = knotVector[i + p] - knotVector[i];
+        float denominator2 = knotVector[i + p + 1] - knotVector[i + 1];
+
+        // Only compute the left term if the denominator is not zero
+        if (denominator1 != 0.0f) {
+            leftTerm = (u - knotVector[i]) / denominator1 * N(i, p - 1, u, knotVector);
+        }
+
+        // Only compute the right term if the denominator is not zero
+        if (denominator2 != 0.0f) {
+            rightTerm = (knotVector[i + p + 1] - u) / denominator2 * N(i + 1, p - 1, u, knotVector);
+        }
+
+        return leftTerm + rightTerm;
+    }
+}
+
+std::vector<GLfloat> evaluateSurface(float u, float v,const std::vector<float>& knotVectorU, const std::vector<float>& knotVectorV, int p, int q) {
+    int n = controlPoints.size() - 1;
+    int m = controlPoints[0].size() - 1;
+    std::vector<GLfloat> surfacePoint(3, 0.0f);;
+
+    for (int i = 0; i <= n; ++i) {
+        for (int j = 0; j <= m; ++j) {
+            float Ni = N(i, p, u, knotVectorU);
+            float Nj = N(j, q, v, knotVectorV);
+            surfacePoint[0] += Ni * Nj * controlPoints[i][j][0];
+            surfacePoint[1] += Ni * Nj * controlPoints[i][j][1];
+            surfacePoint[2] += Ni * Nj * controlPoints[i][j][2];
+        }
+    }
+    return surfacePoint;
+}
+
+void renderBSplineSurface(const std::vector<float>& knotVectorU, const std::vector<float>& knotVectorV,int p, int q, int resolution) {
+    
+    glBegin(GL_QUADS);
+    for (int i = 0; i < resolution - 1; ++i) {
+        float u1 = std::min((float)i / (resolution - 1), 0.999f);
+        float u2 = std::min((float)(i + 1) / (resolution - 1), 0.999f);
+        
+
+        for (int j = 0; j < resolution - 1; ++j) {
+            float v1 = std::min((float)j / (resolution - 1), 0.999f);
+            float v2 = std::min((float)(j + 1) / (resolution - 1), 0.999f);
+
+            // Evaluate four corner points of the current quad
+            std::vector<GLfloat> p1 = evaluateSurface(u1, v1,  knotVectorU, knotVectorV, p, q);
+            std::vector<GLfloat> p2 = evaluateSurface(u2, v1,  knotVectorU, knotVectorV, p, q);
+            std::vector<GLfloat> p3 = evaluateSurface(u2, v2,  knotVectorU, knotVectorV, p, q);
+            std::vector<GLfloat> p4 = evaluateSurface(u1, v2,  knotVectorU, knotVectorV, p, q);
+
+            // Draw the quad
+            glVertex3f(p1[0], p1[1], p1[2]);
+            glVertex3f(p2[0], p2[1], p2[2]);
+            glVertex3f(p3[0], p3[1], p3[2]);
+            glVertex3f(p4[0], p4[1], p4[2]);
+            //std::cout << "P1: " << p1[0] << ", " << p1[1] << ", " << p1[2] << std::endl;
+
+            
+        }
+    }
+    glEnd();
+    //for (auto& kv : knotVectorU) std::cout << kv << " ";
+
+}
+
 // Initialization routine.
 void setup(void)
 {
@@ -133,7 +237,22 @@ void drawScene(void)
     }
     glEnd();*/
 
-    drawBezierSurface(30);
+    if (mode == 0) {
+        drawBezierSurface(30);
+    }
+    else {
+        knotVectorU = generateKnotVector(numPoints - 1);
+        knotVectorV = generateKnotVector(numPoints - 1);
+        renderBSplineSurface(knotVectorU, knotVectorV, numPoints - 1, numPoints - 1, 30);
+
+        /*
+        knotVectorU = generateKnotVector(3);
+        knotVectorV = generateKnotVector(3);
+        renderBSplineSurface(knotVectorU, knotVectorV, 3, 3, 30);*/
+    }
+
+    
+    
 
 
     glBegin(GL_QUADS);
@@ -255,6 +374,11 @@ void keyInput(unsigned char key, int x, int y)
             rowCount = 0;
             changeControlPoints();
         }
+        glutPostRedisplay();
+        break;
+    case 'h':
+        if (mode == 0) mode = 1;
+        else mode = 0;
         glutPostRedisplay();
         break;
     
