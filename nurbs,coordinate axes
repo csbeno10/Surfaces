@@ -33,6 +33,28 @@ float Bernstein(int i, int n, float t) {
     return binomial * pow(t, i) * pow(1 - t, n - i);
 }
 
+void drawAxes() {
+    glLineWidth(2.0f); // Set line width for axes
+    glColor3f(0.0f, 0.0f, 0.0f); // Set color to black
+
+    glBegin(GL_LINES);
+
+    // X-axis
+    glVertex3f(-5.0f, 0.0f, 0.0f);
+    glVertex3f(5.0f, 0.0f, 0.0f);
+
+    // Y-axis
+    glVertex3f(0.0f, -5.0f, 0.0f);
+    glVertex3f(0.0f, 5.0f, 0.0f);
+
+    // Z-axis
+    glVertex3f(0.0f, 0.0f, -5.0f);
+    glVertex3f(0.0f, 0.0f, 5.0f);
+
+    glEnd();
+    glLineWidth(1.0f); // Reset line width
+}
+
 // Function to evaluate the Bézier surface at (u, v)
 void evaluateBezierSurface(float u, float v, float* point) {
     point[0] = point[1] = point[2] = 0.0f;
@@ -284,6 +306,7 @@ void drawScene(void)
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
+    drawAxes();
     /*
     glBegin(GL_QUADS);
     float part = 10.0 / 30.0;
