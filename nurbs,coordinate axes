@@ -17,7 +17,7 @@ static int mode = 0;
 // Track the selected control point
 static int rowCount = 0, columnCount = 0;
 
-std::vector<std::vector<std::vector<GLfloat>>> controlPoints(numPoints, std::vector<std::vector<GLfloat>>(numPoints, std::vector<GLfloat>(3)));
+std::vector<std::vector<std::vector<GLfloat>>> controlPoints(numPoints, std::vector<std::vector<GLfloat>>(numPoints, std::vector<GLfloat>(4))); // x, y, z, weight
 
 std::vector<float> knotVectorU;
 std::vector<float> knotVectorV;
@@ -31,27 +31,6 @@ float Bernstein(int i, int n, float t) {
         binomial *= (float)(n - k) / (k + 1);
 
     return binomial * pow(t, i) * pow(1 - t, n - i);
-}
-
-void drawAxes() {
-    glBegin(GL_LINES);
-
-    // X-axis (Red)
-    glColor3f(1.0, 0.0, 0.0);
-    glVertex3f(0.0, 0.0, 0.0);
-    glVertex3f(5.0, 0.0, 0.0);  // 5 units along the X axis
-
-    // Y-axis (Green)
-    glColor3f(0.0, 1.0, 0.0);
-    glVertex3f(0.0, 0.0, 0.0);
-    glVertex3f(0.0, 5.0, 0.0);  // 5 units along the Y axis
-
-    // Z-axis (Blue)
-    glColor3f(0.0, 0.0, 1.0);
-    glVertex3f(0.0, 0.0, 0.0);
-    glVertex3f(0.0, 0.0, 5.0);  // 5 units along the Z axis
-
-    glEnd();
 }
 
 // Function to evaluate the Bézier surface at (u, v)
@@ -112,83 +91,12 @@ void changeControlPoints()
     GLfloat part = 10.0 / (numPoints - 1);
     for (int i = 0; i < numPoints; ++i) {
         for (int j = 0; j < numPoints; ++j) {
-            controlPoints[i][j] = { -5 + (i * part), -5 + (j * part) , 0.0 };
-
-        }
-
-    }
-}
-std::vector<GLfloat> evaluateNURBSSurface(float u, float v, const std::vector<float>& knotVectorU, const std::vector<float>& knotVectorV, int p, int q) {
-    int n = controlPoints.size() - 1;
-    int m = controlPoints[0].size() - 1;
-    std::vector<GLfloat> surfacePoint(3, 0.0f);
-    float weightSum = 0.0f;
-
-    for (int i = 0; i <= n; ++i) {
-        for (int j = 0; j <= m; ++j) {
-            float Ni = N(i, p, u, knotVectorU);
-            float Nj = N(j, q, v, knotVectorV);
-            float weight = controlPoints[i][j][3];  // Weight for the control point
-
-            surfacePoint[0] += Ni * Nj * weight * controlPoints[i][j][0];
-            surfacePoint[1] += Ni * Nj * weight * controlPoints[i][j][1];
-            surfacePoint[2] += Ni * Nj * weight * controlPoints[i][j][2];
-
-            weightSum += Ni * Nj * weight;
-        }
-    }
-
-    // Normalize by the sum of the weights
-    if (weightSum != 0.0f) {
-        surfacePoint[0] /= weightSum;
-        surfacePoint[1] /= weightSum;
-        surfacePoint[2] /= weightSum;
-    }
-
-    return surfacePoint;
-}
-
-// Draw the NURBS surface
-void renderNURBSSurface(const std::vector<float>& knotVectorU, const std::vector<float>& knotVectorV, int p, int q, int resolution) {
-    glBegin(GL_QUADS);
-    for (int i = 0; i < resolution - 1; ++i) {
-        float u1 = std::min((float)i / (resolution - 1), 0.999f);
-        float u2 = std::min((float)(i + 1) / (resolution - 1), 0.999f);
-
-        for (int j = 0; j < resolution - 1; ++j) {
-            float v1 = std::min((float)j / (resolution - 1), 0.999f);
-            float v2 = std::min((float)(j + 1) / (resolution - 1), 0.999f);
-
-            std::vector<GLfloat> p1 = evaluateNURBSSurface(u1, v1, knotVectorU, knotVectorV, p, q);
-            std::vector<GLfloat> p2 = evaluateNURBSSurface(u2, v1, knotVectorU, knotVectorV, p, q);
-            std::vector<GLfloat> p3 = evaluateNURBSSurface(u2, v2, knotVectorU, knotVectorV, p, q);
-            std::vector<GLfloat> p4 = evaluateNURBSSurface(u1, v2, knotVectorU, knotVectorV, p, q);
-
-            glVertex3f(p1[0], p1[1], p1[2]);
-            glVertex3f(p2[0], p2[1], p2[2]);
-            glVertex3f(p3[0], p3[1], p3[2]);
-            glVertex3f(p4[0], p4[1], p4[2]);
-        }
-    }
-    glEnd();
-}
-void changeControlPoints() {
-    controlPoints.resize(numPoints);
-
-    for (int i = 0; i < numPoints; ++i) {
-        controlPoints[i].resize(numPoints);
-    }
-
-    GLfloat part = 10.0 / (numPoints - 1);
-    for (int i = 0; i < numPoints; ++i) {
-        for (int j = 0; j < numPoints; ++j) {
-            controlPoints[i][j][0] = -5 + (i * part);
-            controlPoints[i][j][1] = -5 + (j * part);
-            controlPoints[i][j][2] = 0.0;
-            controlPoints[i][j][3] = 1.0f;  // Set the weight for each control point (default to 1.0)
+            controlPoints[i][j] = { -5 + (i * part), -5 + (j * part), 0.0, 1.0 }; // x, y, z, w
         }
     }
 }
+
+
 
 std::vector<float> generateKnotVector(int degree) {
     int numControlPoints = numPoints;
@@ -237,6 +145,42 @@ float N(int i, int p, float u, const std::vector<float>& knotVector) {
     }
 }
 
+std::vector<GLfloat> evaluateNURBSSurface(float u, float v, const std::vector<float>& knotVectorU, const std::vector<float>& knotVectorV, int p, int q) {
+    int n = controlPoints.size() - 1;
+    int m = controlPoints[0].size() - 1;
+    std::vector<GLfloat> surfacePoint(3, 0.0f);
+    float wSum = 0.0f;
+
+    for (int i = 0; i <= n; ++i) {
+        for (int j = 0; j <= m; ++j) {
+            float Ni = N(i, p, u, knotVectorU);
+            float Nj = N(j, q, v, knotVectorV);
+            float weight = controlPoints[i][j][3]; // Access the weight
+            float basis = Ni * Nj * weight;
+
+            surfacePoint[0] += basis * controlPoints[i][j][0];
+            surfacePoint[1] += basis * controlPoints[i][j][1];
+            surfacePoint[2] += basis * controlPoints[i][j][2];
+            wSum += basis;
+        }
+    }
+
+    // Divide by the weight sum
+    surfacePoint[0] /= wSum;
+    surfacePoint[1] /= wSum;
+    surfacePoint[2] /= wSum;
+
+    return surfacePoint;
+    if (wSum != 0.0f) {
+        surfacePoint[0] /= wSum;
+        surfacePoint[1] /= wSum;
+        surfacePoint[2] /= wSum;
+    }
+    else {
+        std::cerr << "Warning: Weight sum is zero!" << std::endl;
+    }
+}
+
 std::vector<GLfloat> evaluateSurface(float u, float v, const std::vector<float>& knotVectorU, const std::vector<float>& knotVectorV, int p, int q) {
     int n = controlPoints.size() - 1;
     int m = controlPoints[0].size() - 1;
@@ -252,6 +196,32 @@ std::vector<GLfloat> evaluateSurface(float u, float v, const std::vector<float>&
         }
     }
     return surfacePoint;
+}
+
+void renderNURBSSurface(const std::vector<float>& knotVectorU, const std::vector<float>& knotVectorV, int p, int q, int resolution) {
+    glBegin(GL_QUADS);
+    for (int i = 0; i < resolution - 1; ++i) {
+        float u1 = std::min((float)i / (resolution - 1), 0.999f);
+        float u2 = std::min((float)(i + 1) / (resolution - 1), 0.999f);
+
+        for (int j = 0; j < resolution - 1; ++j) {
+            float v1 = std::min((float)j / (resolution - 1), 0.999f);
+            float v2 = std::min((float)(j + 1) / (resolution - 1), 0.999f);
+
+            // Evaluate four corner points of the current quad
+            std::vector<GLfloat> p1 = evaluateNURBSSurface(u1, v1, knotVectorU, knotVectorV, p, q);
+            std::vector<GLfloat> p2 = evaluateNURBSSurface(u2, v1, knotVectorU, knotVectorV, p, q);
+            std::vector<GLfloat> p3 = evaluateNURBSSurface(u2, v2, knotVectorU, knotVectorV, p, q);
+            std::vector<GLfloat> p4 = evaluateNURBSSurface(u1, v2, knotVectorU, knotVectorV, p, q);
+
+            // Draw the quad
+            glVertex3f(p1[0], p1[1], p1[2]);
+            glVertex3f(p2[0], p2[1], p2[2]);
+            glVertex3f(p3[0], p3[1], p3[2]);
+            glVertex3f(p4[0], p4[1], p4[2]);
+        }
+    }
+    glEnd();
 }
 
 void renderBSplineSurface(const std::vector<float>& knotVectorU, const std::vector<float>& knotVectorV, int p, int q, int resolution) {
@@ -330,15 +300,16 @@ void drawScene(void)
     if (mode == 0) {
         drawBezierSurface(30);
     }
-    else {
+    else if (mode == 1) {
         knotVectorU = generateKnotVector(numPoints - 1);
         knotVectorV = generateKnotVector(numPoints - 1);
-        renderBSplineSurface(knotVectorU, knotVectorV, numPoints - 1, numPoints - 1, 30);
-
-        /*
-        knotVectorU = generateKnotVector(3);
+        renderBSplineSurface(knotVectorU, knotVectorV, numPoints - 1, numPoints - 1, 30);  // B-spline surface.
+    }
+    else if (mode == 2) {
+        knotVectorU = generateKnotVector(3);  // Cubic NURBS (example).
         knotVectorV = generateKnotVector(3);
-        renderBSplineSurface(knotVectorU, knotVectorV, 3, 3, 30);*/
+        glColor3f(0.0f, 0.5f, 0.5f);
+        renderNURBSSurface(knotVectorU, knotVectorV, 3, 3, 30);  // NURBS surface.
     }
 
 
@@ -467,8 +438,7 @@ void keyInput(unsigned char key, int x, int y)
         glutPostRedisplay();
         break;
     case 'h':
-        if (mode == 0) mode = 1;
-        else mode = 0;
+        mode = (mode + 1) % 3; // Cycle through 0, 1, and 2
         glutPostRedisplay();
         break;
 
@@ -485,6 +455,7 @@ void printInteraction(void)
     std::cout << "Press WASD to rotate" << std::endl;
     std::cout << "Use x/X, y/Y, z/Z keys to move the selected control point" << std::endl;
     std::cout << "Use space and tab to swap the selected control point" << std::endl;
+    std::cout << "Use h to cycle through the modes" << std::endl;
 }
 
 // Main routine.
